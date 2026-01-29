@@ -12,5 +12,4 @@ class CategoryAdmin(admin.ModelAdmin):
 class ProductAdmin(admin.ModelAdmin):
     list_display = ('name', 'category', 'price', 'is_active')
     list_filter = ('category', 'is_active')
-    search_fields = ('name', 'sku')
     prepopulated_fields = {'slug': ('name',)}

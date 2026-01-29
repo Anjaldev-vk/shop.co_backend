@@ -49,7 +49,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Product
-        fields = ('id','name','slug','description','price','discount_price','final_price','sku',
+        fields = ('id','name','slug','description','price','discount_price','final_price',
                   'image','category','stock_quantity','created_at',)
 
     def get_stock_quantity(self, obj):

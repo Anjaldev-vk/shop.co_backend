@@ -52,7 +52,7 @@ class Product(models.Model):
         blank=True
     )
 
-    sku = models.CharField(max_length=50, unique=True)
+
 
     image = models.ImageField(
         upload_to='products/',
