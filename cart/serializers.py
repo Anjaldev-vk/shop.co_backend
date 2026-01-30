@@ -6,6 +6,8 @@ from product.models import Product
 #-----------------------------cart item serializer----------------------------#
 class CartItemSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.name', read_only=True)
+    product_slug = serializers.CharField(source='product.slug', read_only=True)
+    product_image = serializers.ImageField(source='product.image', read_only=True)
     product_price = serializers.DecimalField(
         source='product.final_price',
         max_digits=10,
@@ -19,6 +21,8 @@ class CartItemSerializer(serializers.ModelSerializer):
             'id',
             'product',
             'product_name',
+            'product_slug',
+            'product_image',
             'product_price',
             'quantity',
         )
