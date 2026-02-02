@@ -21,11 +21,9 @@ class RegisterView(APIView):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        # Generate OTP
         otp = generate_otp()
         otp_expiry = get_otp_expiry()
 
-        # Create user
         user = serializer.save(
             otp=otp,
             otp_expiry=otp_expiry,
@@ -125,8 +123,7 @@ class ResendOTPView(APIView):
         user.otp_expiry = otp_expiry
         user.save()
 
-        # In a real app, send email here.
-        # For development, return in response.
+
         return Response(
             {
                 "message": "OTP sent successfully",
@@ -167,10 +164,11 @@ class LoginView(APIView):
 
         # Generate JWT tokens
         refresh = RefreshToken.for_user(user)
+        print(refresh)
 
-        return Response(
+        response =  Response(
             {
-                "refresh": str(refresh),
+                # "refresh": str(refresh),
                 "access": str(refresh.access_token),
                 "user": {
                     "id": user.id,
@@ -181,6 +179,15 @@ class LoginView(APIView):
             },
             status=status.HTTP_200_OK
         )
+
+        response.set_cookie(
+            key='refresh_token',
+            value=str(refresh),
+            httponly=True,
+            secure=False,
+            samesite='Lax'
+        )
+        return response
 
 
 # -----------------------------User Profile------------------------------
@@ -230,9 +237,7 @@ class PasswordResetRequestView(APIView):
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
-            # We explicitly do not want to reveal if a user exists or not for security reasons
-            # But for this specific requirement asking for "forgot-password option", 
-            # and following the pattern of other views which return specific errors:
+
             return Response(
                 {"error": "User not found"},
                 status=status.HTTP_404_NOT_FOUND
@@ -244,7 +249,7 @@ class PasswordResetRequestView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        # Generate OTP
+
         otp = generate_otp()
         otp_expiry = get_otp_expiry()
 
@@ -252,8 +257,7 @@ class PasswordResetRequestView(APIView):
         user.otp_expiry = otp_expiry
         user.save()
 
-        # In a real application, send email here.
-        # For now, return OTP in response.
+
         return Response(
             {
                 "message": "OTP sent to email",

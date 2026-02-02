@@ -16,7 +16,8 @@ class RegisterSerializer(serializers.ModelSerializer):
         read_only_fields = ('id',)
 
     def create(self, validated_data):
-
+        
+        # sending data to create_user method of User model
         password = validated_data.pop('password')
         user = User.objects.create_user(password=password,**validated_data)
         return user
