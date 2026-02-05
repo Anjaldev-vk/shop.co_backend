@@ -49,7 +49,9 @@ INSTALLED_APPS = [
     'orders',
     'shipping',
     'payments',
+    'admin_panel',
     'corsheaders',
+    'rest_framework_simplejwt.token_blacklist',
 ]
 
 MIDDLEWARE = [

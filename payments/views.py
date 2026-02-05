@@ -1,7 +1,5 @@
 import razorpay
 from django.conf import settings
-from django.shortcuts import get_object_or_404
-
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
@@ -10,12 +8,19 @@ from orders.models import Order
 from .models import Payment
 
 
+
 class CreateRazorpayOrderView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, order_id):
-        # Get order for logged-in user
-        order = get_object_or_404(Order, id=order_id, user=request.user)
+        try:
+            # Explicitly fetch order for the logged-in user
+            order = Order.objects.get(id=order_id, user=request.user)
+        except Order.DoesNotExist:
+            return Response(
+                {"error": "Order not found or you do not have permission to access it."},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
         # Prevent duplicate payment
         if hasattr(order, 'payment'):
@@ -29,12 +34,18 @@ class CreateRazorpayOrderView(APIView):
             auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
         )
 
-        # Create Razorpay order
-        razorpay_order = client.order.create({
-            "amount": int(order.total_amount * 100),  # INR → paise
-            "currency": "INR",
-            "payment_capture": 1
-        })
+        try:
+            # Create Razorpay order
+            razorpay_order = client.order.create({
+                "amount": int(order.total_amount * 100),  # INR → paise
+                "currency": "INR",
+                "payment_capture": 1
+            })
+        except Exception as e:
+            return Response(
+                {"error": f"Razorpay order creation failed: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
         # Save payment in DB
         payment = Payment.objects.create(
@@ -58,6 +69,11 @@ class VerifyPaymentView(APIView):
 
     def post(self, request):
         data = request.data
+        
+        # Ensure required fields are present
+        required_fields = ['razorpay_order_id', 'razorpay_payment_id', 'razorpay_signature']
+        if not all(field in data for field in required_fields):
+            return Response({"error": "Missing payment details"}, status=status.HTTP_400_BAD_REQUEST)
 
         client = razorpay.Client(
             auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
@@ -72,15 +88,18 @@ class VerifyPaymentView(APIView):
             })
         except razorpay.errors.SignatureVerificationError:
             return Response(
-                {"error": "Payment verification failed"},
+                {"error": "Payment verification failed (Invalid signature)"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Fetch payment
-        payment = get_object_or_404(
-            Payment,
-            razorpay_order_id=data['razorpay_order_id']
-        )
+        try:
+            # Fetch payment record
+            payment = Payment.objects.get(razorpay_order_id=data['razorpay_order_id'])
+        except Payment.DoesNotExist:
+            return Response(
+                {"error": "Payment record not found for the provided order ID."},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
         # Update payment
         payment.razorpay_payment_id = data['razorpay_payment_id']
@@ -104,7 +123,13 @@ class CashOnDeliveryView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, order_id):
-        order = get_object_or_404(Order, id=order_id, user=request.user)
+        try:
+            order = Order.objects.get(id=order_id, user=request.user)
+        except Order.DoesNotExist:
+            return Response(
+                {"error": "Order not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
         # Prevent duplicate payment
         if hasattr(order, 'payment'):

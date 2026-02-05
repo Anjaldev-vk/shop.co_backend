@@ -61,3 +61,26 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
     otp = serializers.CharField(max_length=6)
     new_password = serializers.CharField(min_length=6, write_only=True)
 
+
+
+
+class UserSerializer(serializers.ModelSerializer):
+    """
+    Admin user serializer
+    Used only in admin panel
+    """
+
+    class Meta:
+        model = User
+        fields = (
+            'id',
+            'name',
+            'email',
+            'role',
+            'is_active',
+            'is_staff',
+            'is_verified',
+            'created_at',
+        )
+        read_only_fields = ('id', 'created_at')
+

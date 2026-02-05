@@ -26,11 +26,12 @@ class ProductListSerializer(serializers.ModelSerializer):
         decimal_places=2,
         read_only=True
     )
+    total_sold = serializers.IntegerField(read_only=True)
     is_in_stock = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
-        fields = ('id','name','slug','price','discount_price','final_price','image','category','is_in_stock',)
+        fields = ('id','name','slug','price','discount_price','final_price','image','category','is_in_stock','total_sold')
 
     def get_is_in_stock(self, obj):
         if hasattr(obj, 'inventory'):

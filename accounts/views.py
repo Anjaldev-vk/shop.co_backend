@@ -312,3 +312,35 @@ class PasswordResetConfirmView(APIView):
             {"message": "Password reset successfully"},
             status=status.HTTP_200_OK
         )
+# -----------------------------Logout------------------------------
+
+class LogoutView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        refresh_token = request.COOKIES.get('refresh_token')
+
+        if not refresh_token:
+            return Response(
+                {"error": "Refresh token not found"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+        except Exception:
+            return Response(
+                {"error": "Invalid or expired token"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        response = Response(
+            {"message": "Logged out successfully"},
+            status=status.HTTP_200_OK
+        )
+
+        # Delete refresh token cookie
+        response.delete_cookie('refresh_token')
+
+        return response
