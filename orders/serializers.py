@@ -7,10 +7,15 @@ class OrderItemSerializer(serializers.ModelSerializer):
         model = OrderItem
         fields = (
             'product_name',
+            'product_slug',
+            'product_image',
             'price',
             'quantity',
             'subtotal',
         )
+
+    product_image = serializers.ImageField(source='product.image', read_only=True)
+    product_slug = serializers.SlugField(source='product.slug', read_only=True)
 
 
 class OrderSerializer(serializers.ModelSerializer):

@@ -25,7 +25,10 @@ class CartItemSerializer(serializers.ModelSerializer):
             'product_image',
             'product_price',
             'quantity',
+            'stock_quantity',
         )
+
+    stock_quantity = serializers.IntegerField(source='product.inventory.quantity', read_only=True)
 
 
 #-----------------------------cart serializer----------------------------#

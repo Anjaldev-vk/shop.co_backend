@@ -51,6 +51,17 @@ class AddToCartView(APIView):
                 )
 
             product = Product.objects.get(id=product_id, is_active=True)
+            # Check inventory
+            if hasattr(product, 'inventory'):
+                stock = product.inventory.quantity
+                if quantity > stock:
+                     return Response(
+                        {"error": f"Only {stock} items available"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            else:
+                stock = 0 # Assume 0 if no inventory record
+
             cart = get_user_cart(request.user)
 
             cart_item, created = CartItem.objects.get_or_create(
@@ -59,9 +70,20 @@ class AddToCartView(APIView):
             )
 
             if created:
+                if quantity > stock:
+                     return Response(
+                        {"error": f"Only {stock} items available"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
                 cart_item.quantity = quantity
             else:
-                cart_item.quantity += quantity
+                new_quantity = cart_item.quantity + quantity
+                if new_quantity > stock:
+                    return Response(
+                        {"error": f"Only {stock} items available. You already have {cart_item.quantity} in cart."},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                cart_item.quantity = new_quantity
 
             cart_item.save()
 
@@ -116,6 +138,16 @@ class UpdateCartItemView(APIView):
                     status=status.HTTP_200_OK
                 )
 
+            # Check inventory
+            product = cart_item.product
+            if hasattr(product, 'inventory'):
+                stock = product.inventory.quantity
+                if quantity > stock:
+                     return Response(
+                        {"error": f"Only {stock} items available"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            
             cart_item.quantity = quantity
             cart_item.save()
 
