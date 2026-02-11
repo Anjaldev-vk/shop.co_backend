@@ -37,7 +37,7 @@ class CreateRazorpayOrderView(APIView):
         try:
             # Create Razorpay order
             razorpay_order = client.order.create({
-                "amount": int(order.total_amount * 100),  # INR → paise
+                "amount": int(order.total_amount * 100), 
                 "currency": "INR",
                 "payment_capture": 1
             })

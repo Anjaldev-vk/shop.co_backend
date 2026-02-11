@@ -8,6 +8,7 @@ from django.conf import settings
 from cart.models import Cart
 from inventory.models import Inventory
 from .models import Order, OrderItem
+from payments.models import Payment
 from .serializers import OrderSerializer
 
 
@@ -84,6 +85,18 @@ class CreateOrderView(APIView):
                 total_amount=total_amount,
                 status=Order.STATUS_PENDING
             )
+
+            # ---- STEP 2.1: HANDLE COD PAYMENT ----
+            payment_method = request.data.get('payment_method')
+            if payment_method == 'COD':
+                Payment.objects.create(
+                    order=order,
+                    payment_method='COD',
+                    amount=total_amount,
+                    status='PENDING'
+                )
+                order.status = 'PLACED'
+                order.save()
 
             # ---- STEP 3: CREATE ORDER ITEMS + UPDATE INVENTORY ----
             for data in order_items_data:
