@@ -41,7 +41,7 @@ class AdminDashboardView(APIView):
         # 5. Top selling products
         top_selling_products = list(
             OrderItem.objects
-            .values('product__id', 'product__name')
+            .values('product__id', 'product__name', 'product__image')
             .annotate(total_sold=Sum('quantity'))
             .order_by('-total_sold')[:5]
         )

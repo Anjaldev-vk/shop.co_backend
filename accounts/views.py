@@ -1,10 +1,12 @@
 from rest_framework.views import APIView
 from rest_framework.generics import RetrieveUpdateAPIView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
+from django.conf import settings
 
 from .serializers import (
     RegisterSerializer, VerifyOTPSerializer, LoginSerializer,
@@ -12,12 +14,13 @@ from .serializers import (
     PasswordResetRequestSerializer, PasswordResetConfirmSerializer
 )
 from .models import User
-from .utils import generate_otp, get_otp_expiry
-from .utils import send_otp_email
+from .utils import generate_otp, get_otp_expiry, send_otp_email
 
 
-# ------------------------ Register & Send OTP ------------------------
+# ------------------------ Register ------------------------
 class RegisterView(APIView):
+    permission_classes = [AllowAny]
+
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -39,8 +42,10 @@ class RegisterView(APIView):
         )
 
 
-# ----------------------------- Verify OTP -----------------------------
+# ------------------------ Verify OTP ------------------------
 class VerifyOTPView(APIView):
+    permission_classes = [AllowAny]
+
     def post(self, request):
         serializer = VerifyOTPSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -70,8 +75,10 @@ class VerifyOTPView(APIView):
         return Response({"message": "Account verified successfully"}, status=200)
 
 
-# ----------------------------- Resend OTP -----------------------------
+# ------------------------ Resend OTP ------------------------
 class ResendOTPView(APIView):
+    permission_classes = [AllowAny]
+
     def post(self, request):
         serializer = ResendOTPSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -99,8 +106,10 @@ class ResendOTPView(APIView):
         return Response({"message": "OTP sent to email"}, status=200)
 
 
-# ----------------------------- Login -----------------------------
+# ------------------------ Login ------------------------
 class LoginView(APIView):
+    permission_classes = [AllowAny]
+
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -120,32 +129,32 @@ class LoginView(APIView):
             return Response({"error": "Account is blocked"}, status=403)
 
         refresh = RefreshToken.for_user(user)
+        access_token = str(refresh.access_token)
 
-        response = Response(
-            {
-                "access": str(refresh.access_token),
-                "user": {
-                    "id": user.id,
-                    "name": user.name,
-                    "email": user.email,
-                    "role": user.role,
-                },
+        response = Response({
+            "access": access_token,
+            "user": {
+                "id": user.id,
+                "name": user.name,
+                "email": user.email,
+                "role": user.role,
             },
-            status=200,
-        )
+        }, status=200)
 
+        # Secure Refresh Cookie
         response.set_cookie(
             key="refresh_token",
             value=str(refresh),
             httponly=True,
-            secure=False,
-            samesite="Lax",
+            secure=True,
+            samesite="None",
+            path="/",
         )
 
         return response
 
 
-# ----------------------------- User Profile -----------------------------
+# ------------------------ User Profile ------------------------
 class UserProfileView(RetrieveUpdateAPIView):
     serializer_class = UserProfileSerializer
     permission_classes = [IsAuthenticated]
@@ -154,7 +163,7 @@ class UserProfileView(RetrieveUpdateAPIView):
         return self.request.user
 
 
-# ----------------------------- Change Password -----------------------------
+# ------------------------ Change Password ------------------------
 class ChangePasswordView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -173,8 +182,10 @@ class ChangePasswordView(APIView):
         return Response({"message": "Password changed successfully"}, status=200)
 
 
-# ----------------------------- Forgot Password -----------------------------
+# ------------------------ Forgot Password ------------------------
 class PasswordResetRequestView(APIView):
+    permission_classes = [AllowAny]
+
     def post(self, request):
         serializer = PasswordResetRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -197,8 +208,10 @@ class PasswordResetRequestView(APIView):
         return Response({"message": "OTP sent to email"}, status=200)
 
 
-# ----------------------------- Reset Password -----------------------------
+# ------------------------ Reset Password ------------------------
 class PasswordResetConfirmView(APIView):
+    permission_classes = [AllowAny]
+
     def post(self, request):
         serializer = PasswordResetConfirmSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -225,22 +238,59 @@ class PasswordResetConfirmView(APIView):
         return Response({"message": "Password reset successfully"}, status=200)
 
 
-# ----------------------------- Logout -----------------------------
+# ------------------------ Logout ------------------------
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
         refresh_token = request.COOKIES.get("refresh_token")
 
-        if not refresh_token:
-            return Response({"error": "Refresh token not found"}, status=400)
-
-        try:
-            token = RefreshToken(refresh_token)
-            token.blacklist()
-        except Exception:
-            return Response({"error": "Invalid token"}, status=400)
+        if refresh_token:
+            try:
+                token = RefreshToken(refresh_token)
+                token.blacklist()
+            except Exception:
+                pass
 
         response = Response({"message": "Logged out successfully"}, status=200)
-        response.delete_cookie("refresh_token")
+
+        response.delete_cookie(
+            key="refresh_token",
+            path="/",
+            samesite="None",
+        )
+
         return response
+
+
+# ------------------------ Refresh Token ------------------------
+class CookieTokenRefreshView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        refresh_token = request.COOKIES.get("refresh_token")
+
+        if not refresh_token:
+            return Response({"error": "Refresh token missing"}, status=401)
+
+        try:
+            refresh = RefreshToken(refresh_token)
+            access_token = str(refresh.access_token)
+
+            response = Response({"access": access_token}, status=200)
+
+            # rotate refresh token
+            if settings.SIMPLE_JWT["ROTATE_REFRESH_TOKENS"]:
+                response.set_cookie(
+                    key="refresh_token",
+                    value=str(refresh),
+                    httponly=True,
+                    secure=True,
+                    samesite="None",
+                    path="/",
+                )
+
+            return response
+
+        except TokenError:
+            return Response({"error": "Invalid or expired refresh token"}, status=401)
