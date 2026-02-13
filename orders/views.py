@@ -7,12 +7,12 @@ from django.conf import settings
 
 from cart.models import Cart
 from inventory.models import Inventory
-from .models import Order, OrderItem
+from .models import Order, OrderItem, OrderShippingAddress
 from payments.models import Payment
 from .serializers import OrderSerializer
+from shipping.models import UserAddress
 
 
-# ------------------------ Create Order from Cart ------------------------
 from product.models import Product
 
 # ------------------------ Create Order from Cart ------------------------
@@ -110,12 +110,42 @@ class CreateOrderView(APIView):
 
                 total_amount += subtotal
 
+            # ---- STEP 1.1: FETCH SHIPPING ADDRESS ----
+            shipping_address_id = request.data.get('shipping_address_id')
+            shipping_address = None
+
+            if shipping_address_id:
+                try:
+                    shipping_address = UserAddress.objects.get(id=shipping_address_id, user=user)
+                except UserAddress.DoesNotExist:
+                     return Response(
+                        {"error": "Shipping address not found"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            else:
+                # Fallback to user's first address
+                shipping_address = user.addresses.first()
+
             # ---- STEP 2: CREATE ORDER ----
             order = Order.objects.create(
                 user=user,
                 total_amount=total_amount,
                 status=Order.STATUS_PENDING
             )
+
+            # ---- STEP 2.1: CREATE SHIPPING SNAPSHOT ----
+            if shipping_address:
+                OrderShippingAddress.objects.create(
+                    order=order,
+                    full_name=shipping_address.full_name,
+                    phone=shipping_address.phone,
+                    address_line_1=shipping_address.address_line_1,
+                    address_line_2=shipping_address.address_line_2,
+                    city=shipping_address.city,
+                    state=shipping_address.state,
+                    postal_code=shipping_address.postal_code,
+                    country=shipping_address.country
+                )
 
             # ---- STEP 2.1: HANDLE COD PAYMENT ----
             payment_method = request.data.get('payment_method')

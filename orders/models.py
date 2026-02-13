@@ -43,6 +43,28 @@ class Order(models.Model):
         return f"Order {self.id} - {self.status}"
 
 
+# ---------------------------- Order Shipping Address Snapshot ----------------------------
+class OrderShippingAddress(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    order = models.OneToOneField(
+        Order,
+        on_delete=models.CASCADE,
+        related_name='shipping_address'
+    )
+    
+    full_name = models.CharField(max_length=100)
+    phone = models.CharField(max_length=15)
+    address_line_1 = models.CharField(max_length=255)
+    address_line_2 = models.CharField(max_length=255, blank=True)
+    city = models.CharField(max_length=100)
+    state = models.CharField(max_length=100)
+    postal_code = models.CharField(max_length=20)
+    country = models.CharField(max_length=100, default='India')
+
+    def __str__(self):
+        return f"Shipping Address for Order {self.order.id}"
+
+
 # ---------------------------- Order Item Model ----------------------------
 class OrderItem(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

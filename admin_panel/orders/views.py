@@ -9,6 +9,8 @@ from rest_framework.filters import SearchFilter
 from admin_panel.permissions import IsAdminUser
 from orders.models import Order
 from orders.serializers import OrderSerializer
+from payments.models import Payment
+from payments.serializers import PaymentSerializer
 
 
 class AdminOrderListView(ListAPIView):
