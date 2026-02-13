@@ -13,9 +13,13 @@ from payments.models import Payment
 from payments.serializers import PaymentSerializer
 
 
+from admin_panel.pagination import AdminOrdersPagination
+
+
 class AdminOrderListView(ListAPIView):
     permission_classes = [IsAdminUser]
     serializer_class = OrderSerializer
+    pagination_class = AdminOrdersPagination
     filter_backends = [SearchFilter]
     search_fields = ['id', 'user__email']
 

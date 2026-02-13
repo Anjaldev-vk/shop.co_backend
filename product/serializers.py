@@ -20,7 +20,7 @@ class CategorySerializer(serializers.ModelSerializer):
 #-----------------------------products serializer----------------------------#
 
 class ProductListSerializer(serializers.ModelSerializer):
-    category = serializers.StringRelatedField()
+    category = CategorySerializer(read_only=True)
     final_price = serializers.DecimalField(
         max_digits=10,
         decimal_places=2,
