@@ -22,8 +22,8 @@ urlpatterns = [
     # -------------------- USERS ------------------------
     path('users/', AdminUserListView.as_view(), name='admin-user-list'),
     path('users/summary/', AdminUserSummaryView.as_view(), name='admin-user-summary'),
-    path('users/<int:user_id>/', AdminUserDetailView.as_view(), name='admin-user-detail'),
-    path('users/<int:user_id>/toggle/',BlockUnblockUserView.as_view(),name='admin-user-toggle'),
+    path('users/<uuid:user_id>/', AdminUserDetailView.as_view(), name='admin-user-detail'),
+    path('users/<uuid:user_id>/toggle/',BlockUnblockUserView.as_view(),name='admin-user-toggle'),
 
     # -------------------- ORDERS --------------------
     path('orders/', AdminOrderListView.as_view(), name='admin-order-list'),

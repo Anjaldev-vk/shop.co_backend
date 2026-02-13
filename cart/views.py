@@ -60,7 +60,7 @@ class AddToCartView(APIView):
                         status=status.HTTP_400_BAD_REQUEST
                     )
             else:
-                stock = 0 # Assume 0 if no inventory record
+                stock = 0 
 
             cart = get_user_cart(request.user)
 

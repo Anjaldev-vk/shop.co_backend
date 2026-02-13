@@ -16,12 +16,12 @@ class AdminUserListView(ListAPIView):
     permission_classes = [IsAdminUser]
     serializer_class = UserSerializer
     filter_backends = [SearchFilter]
-    search_fields = ['email', 'username']
+    search_fields = ['email', 'name']
 
     def get_queryset(self):
         status_param = self.request.query_params.get('status')
 
-        queryset = User.objects.all().order_by('-created_at')
+        queryset = User.objects.exclude(role='ADMIN').order_by('-created_at')
 
         if status_param == 'active':
             queryset = queryset.filter(is_active=True)
@@ -47,7 +47,7 @@ class AdminUserDetailView(APIView):
 class BlockUnblockUserView(APIView):
     permission_classes = [IsAdminUser]
 
-    def post(self, request, user_id):
+    def patch(self, request, user_id):
         try:
             user = User.objects.get(id=user_id)
         except User.DoesNotExist:

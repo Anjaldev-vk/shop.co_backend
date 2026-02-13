@@ -13,35 +13,66 @@ from .serializers import OrderSerializer
 
 
 # ------------------------ Create Order from Cart ------------------------
+from product.models import Product
+
+# ------------------------ Create Order from Cart ------------------------
 class CreateOrderView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
         user = request.user
+        request_items = request.data.get('items') # Optional: For Buy Now logic
+        
+        cart = None
+        cart_items = []
+        is_buy_now = False
 
-        try:
-            cart = Cart.objects.get(user=user)
-        except Cart.DoesNotExist:
-            return Response(
-                {"error": "Cart is empty"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        cart_items = cart.items.select_related("product")
-
-        if not cart_items.exists():
-            return Response(
-                {"error": "Cart is empty"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        if request_items:
+            is_buy_now = True
+            # Validate request items structure
+            if not isinstance(request_items, list) or not request_items:
+                 return Response(
+                    {"error": "Invalid items format"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        else:
+            try:
+                cart = Cart.objects.get(user=user)
+                cart_items = cart.items.select_related("product")
+                if not cart_items.exists():
+                     return Response(
+                        {"error": "Cart is empty"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            except Cart.DoesNotExist:
+                return Response(
+                    {"error": "Cart is empty"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
         with transaction.atomic():
             total_amount = 0
             order_items_data = []
 
-            # ---- STEP 1: VALIDATE ALL ITEMS FIRST ----
-            for item in cart_items:
-                product = item.product
+            # ---- STEP 1: PREPARE & VALIDATE ITEMS ----
+            
+            # Helper to process an item (either from CartItem or request dict)
+            iterable_items = request_items if is_buy_now else cart_items
+
+            for item in iterable_items:
+                if is_buy_now:
+                    product_id = item.get('product_id')
+                    quantity = item.get('quantity')
+                    try:
+                        product = Product.objects.get(id=product_id)
+                    except Product.DoesNotExist:
+                         return Response(
+                            {"error": f"Product with id {product_id} not found"},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+                else:
+                    product = item.product
+                    quantity = item.quantity
 
                 if not product:
                     return Response(
@@ -59,20 +90,20 @@ class CreateOrderView(APIView):
                         status=status.HTTP_500_INTERNAL_SERVER_ERROR
                     )
 
-                if inventory.quantity < item.quantity:
+                if inventory.quantity < quantity:
                     return Response(
                         {"error": f"Insufficient stock for {product.name}"},
                         status=status.HTTP_400_BAD_REQUEST
                     )
 
                 price = product.final_price
-                subtotal = price * item.quantity
+                subtotal = price * quantity
 
                 order_items_data.append({
                     "product": product,
                     "product_name": product.name,
                     "price": price,
-                    "quantity": item.quantity,
+                    "quantity": quantity,
                     "subtotal": subtotal,
                     "inventory": inventory
                 })
@@ -95,7 +126,7 @@ class CreateOrderView(APIView):
                     amount=total_amount,
                     status='PENDING'
                 )
-                order.status = 'PLACED'
+                order.status = 'PENDING'
                 order.save()
 
             # ---- STEP 3: CREATE ORDER ITEMS + UPDATE INVENTORY ----
@@ -113,8 +144,9 @@ class CreateOrderView(APIView):
                 inventory.quantity -= data["quantity"]
                 inventory.save()
 
-            # ---- STEP 4: CLEAR CART ----
-            cart.items.all().delete()
+            # ---- STEP 4: CLEAR CART (Only if NOT Buy Now) ----
+            if not is_buy_now and cart:
+                cart.items.all().delete()
 
         serializer = OrderSerializer(order)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
