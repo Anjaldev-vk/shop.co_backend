@@ -279,7 +279,6 @@ class CookieTokenRefreshView(APIView):
 
             response = Response({"access": access_token}, status=200)
 
-            # rotate refresh token
             if settings.SIMPLE_JWT["ROTATE_REFRESH_TOKENS"]:
                 response.set_cookie(
                     key="refresh_token",

@@ -21,7 +21,7 @@ class CreateOrderView(APIView):
 
     def post(self, request):
         user = request.user
-        request_items = request.data.get('items') # Optional: For Buy Now logic
+        request_items = request.data.get('items') 
         
         cart = None
         cart_items = []
@@ -177,7 +177,6 @@ class CreateOrderView(APIView):
             # ---- STEP 4: CLEAR CART (Only if NOT Buy Now) ----
             if not is_buy_now and cart:
                 cart.items.all().delete()
-
         serializer = OrderSerializer(order)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
